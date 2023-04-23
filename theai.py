@@ -1,7 +1,9 @@
 import openai
 from db import *
 
-openai.api_key = "{Your_OpenAi_api_key}"
+
+
+openai.api_key = ""
 
 models={"Shriya (AI Assistant)":"An Ai Assistant Named Shriya",
        "Code Assitant":"A code Assitant",
@@ -16,7 +18,6 @@ models={"Shriya (AI Assistant)":"An Ai Assistant Named Shriya",
 
 def ask_shriya(question,id,model):
   actor=models.get(model)  
-  print(actor)
   dialog_messages=fetch_last_three_conversation(id)
   message=[]
   message.append({"role": "system", "content": f"you are {actor}"})
@@ -26,7 +27,6 @@ def ask_shriya(question,id,model):
     else:
       message.append({"role": "assistant", "content": dialog_message["bot"]})
   message.append({"role": "user", "content": question})
-  print(message)
   response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
     messages=message,
@@ -36,4 +36,8 @@ def ask_shriya(question,id,model):
     presence_penalty=0
   )
   return response
+
+async def transcribe_audio(audio_file):
+    r = await openai.Audio.atranscribe("whisper-1", audio_file)
+    return r["text"]
   
