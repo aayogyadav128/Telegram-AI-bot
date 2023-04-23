@@ -20,6 +20,13 @@ from telegram.ext import (
 from db import *
 from theai import *
 
+import json
+import tempfile
+import pydub
+from pathlib import Path
+import sys
+sys.path.append('/path/to/ffmpeg')
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -47,7 +54,7 @@ async def start(update: Update, context: CallbackContext):
   if not check_if_user_exists(update.message.from_user):
     create_new_user(update.message.from_user)
     
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Hi {user_name} 👋, I am Shriya..... Your New Intelligent Assistant And I am here to help you with your regular stuff...\nCommands:\n⚪️ /retry – Regenerate last bot answer\n⚪️ /new – Start new dialog\n⚪️ /modes – Select chat mode\n⚪️ /subscribe – pay subscription fee\n⚪️ /balance – Show balance\n⚪️ /help – Show help\nAnd now... ask me anything!')
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Hi {user_name} 👋, I am Anmol Ki bot..... Your New Intelligent Assistant And I am here to help you with your regular stuff...\nCommands:\n⚪️ /retry – Regenerate last bot answer\n⚪️ /new – Start new dialog\n⚪️ /modes – Select chat mode\n⚪️ /subscribe – pay subscription fee\n⚪️ /balance – Show balance\n⚪️ /help – Show help\nAnd now... ask me anything!')
   else:
     selected_models=fetch_current_model(update.message.from_user.id)
     
@@ -112,9 +119,14 @@ async def subscribe(update:Update,context:CallbackContext):
       data = get_phone_email(update.message.from_user.id)
       phone=data["phone"]
       email=data["email"]
-      await update.message.reply_text(f"To Subscribe Go to the Following Link: http://yaallo.zapto.org/payu/?amnt=10.00&fnm={update.message.from_user.first_name}&em={email}&phn={phone}&id={update.message.from_user.id}")
+      await update.message.reply_text(f"To Subscribe Go to the Following Button:",reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton(text='PayU', url=f'http://yaallo.zapto.org/payu/?amnt=10.00&fnm={update.message.from_user.first_name}&em={email}&phn={phone}&id={update.message.from_user.id}')],
+        [InlineKeyboardButton(text='Stripe', url=f'http://yaallo.zapto.org/payu/?amnt=10.00&fnm={update.message.from_user.first_name}&em={email}&phn={phone}&id={update.message.from_user.id}')],
+    ]))
+
     else:
-      await update.message.reply_text(f"You haven't registered your Phone and Email. Re-register it from the link below.\nhttps://somerandomlink.some/?data={update.message.from_user.id}")
+      await update.message.reply_text(f"You haven't registered your Phone and Email. Register it from the Button below.\n",reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton(text='Register Details', url=f'https://somerandomlink.some/?data={update.message.from_user.id}')]]))
 
 #####################modes#####################
 async def show_chat_modes_handle(update: Update, context: CallbackContext):
@@ -164,14 +176,66 @@ async def retry(update:Update,context:CallbackContext):
     reply = ask_shriya(last_ques,update.message.from_user.id,model)
     reply=reply.choices[0].message.content
     await update.message.reply_text(reply)
-  
-########################setphone#####################
 
+#############################settings###################################
+async def show_settings(update: Update, context: CallbackContext):
+  await update.message.reply_text("Chat GPT is well Known Model. it's Fast and cheap. Ideal for everyday tasks. if there are some tasks it cant handle try GT-4. \n\nn🟢🟢🟢⚪️⚪️ -Smart\n🟢🟢🟢🟢🟢 -Fast\n🟢🟢🟢🟢🟢 -Cheap\n\n select model:")
+  keyboard=[[InlineKeyboardButton("GPT-3.5", callback_data = f"set_settings|3.5")],[InlineKeyboardButton("GPT-4", callback_data = f"set_chat_mode|GPT_4")]]
+  reply_markup = InlineKeyboardMarkup(keyboard)
+  await update.message.reply_text("Select Chat Modes:", reply_markup=reply_markup)
+########################voice_message_handle#####################
+async def voice_message_handle(update: Update, context: CallbackContext):
+  times_used=get_times_used(update.message.from_user.id)
+  first_time =is_first_time_user(update.message.from_user.id)
+  if not check_if_user_exists(update.message.from_user):
+    create_new_user(update.message.from_user)
+    await update.message.reply_text("Sorry can you ask again?")
+  if not is_user_subscribed(update.message.from_user):
+    await update.message.reply_text("Sorry, You are out of Subscription 🥹. \nto Subscribe use /subscribe command")
+  elif first_time==True and times_used>50:
+    await update.message.reply_text("Sorry, You have used your free trail./n Please Subscribe to continue. 🥹. \nTo Subscribe use /subscribe command")
+  else:
+    user_id = update.message.from_user.id
+
+    voice = update.message.voice
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir = Path(tmp_dir)
+        voice_ogg_path = tmp_dir / "voice.ogg"
+
+        # download
+        voice_file = await context.bot.get_file(voice.file_id)
+        await voice_file.download_to_drive(voice_ogg_path)
+
+         # convert to mp3
+        voice_mp3_path = tmp_dir / "voice.mp3"
+        pydub.AudioSegment.from_file(voice_ogg_path).export(voice_mp3_path, format="mp3")
+
+        # transcribe
+        with open(voice_mp3_path, "rb") as f:
+            transcribed_text = await transcribe_audio(f)
+    text = f"🎤: <i>{transcribed_text}</i>"
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    
+    placeholder_message = await update.message.reply_text("...")
+
+    # send typing action
+    await update.message.chat.send_action(action="typing")
+    update_message_text=transcribed_text
+    
+    entry_of_dialogs(update_message_text,update.message.id,"user",update_message_text)
+    async def get_reply():
+      model = fetch_current_model(update.message.from_user.id)
+      reply = ask_shriya(transcribed_text,update.message.from_user.id,model)
+      return reply
+    reply= await get_reply()
+    reply=reply.choices[0].message.content
+    entry_of_dialogs(update.message.from_user.id,update.message.id,"bot",reply)
+    await context.bot.edit_message_text(reply, chat_id=placeholder_message.chat_id, message_id=placeholder_message.message_id)
     
   
 
 if __name__ == '__main__':
-    application = ApplicationBuilder().token('{YOUR_TELEGRAM_TOKEN}').build()
+    application = ApplicationBuilder().token('').build()
   # add handlers
     user_filter = filters.ALL
 
@@ -187,6 +251,8 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('profile', profile))
     application.add_handler(CommandHandler('subscribe', subscribe))
     application.add_handler(CommandHandler('retry', retry))
+    application.add_handler(CommandHandler('settings', show_settings))
+    application.add_handler(MessageHandler(filters.VOICE & user_filter, voice_message_handle))
     application.add_handler(CallbackQueryHandler(set_chat_mode_handle, pattern="^set_chat_mode"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_prompt))
     
