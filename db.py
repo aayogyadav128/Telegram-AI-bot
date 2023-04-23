@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from datetime import datetime
 
 
-uri = "{Your_mongoDB_connection_url}"
+uri = "mongodb+srv://Telegram-gpt-bot:vgryHahFQn7T0cZ3@cluster101.b01ps.mongodb.net/?retryWrites=true&w=majority"
 
 # Create a new client and connect to the server
 cluster = MongoClient(uri)
