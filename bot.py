@@ -171,7 +171,7 @@ async def retry(update:Update,context:CallbackContext):
   
 
 if __name__ == '__main__':
-    application = ApplicationBuilder().token('6018999699:AAE7U8BIl-Kvh5V4fM4RdHPNJynpX6OVbfM').build()
+    application = ApplicationBuilder().token('{YOUR_TELEGRAM_TOKEN}').build()
   # add handlers
     user_filter = filters.ALL
 
