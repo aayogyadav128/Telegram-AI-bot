@@ -1,7 +1,7 @@
 import openai
 from db import *
 
-openai.api_key = "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"
+openai.api_key = "{Your_OpenAi_api_key}"
 
 models={"Shriya (AI Assistant)":"An Ai Assistant Named Shriya",
        "Code Assitant":"A code Assitant",
