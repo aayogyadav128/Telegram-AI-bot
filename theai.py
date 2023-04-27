@@ -1,43 +1,45 @@
 import openai
+import asyncio
 from db import *
-
-
+from models import *
 
 openai.api_key = ""
-
-models={"Shriya (AI Assistant)":"An Ai Assistant Named Shriya",
-       "Code Assitant":"A code Assitant",
-       "Startup Idea Generator":"Startup Idea Generator bot",
-       "Relationship coach":"A Relationship Coach named Jeetu",
-       "CV Builder":"CV Builder Robot",
-       "Teacher":"Teacher named alakh",
-       "A.P.J Abdul Kalam":"Indian Scientist, Dr. A.P.J Abdul Kalam",
-       "Albert Einstien":"Albert Einstien",
-       "Sandeep Maheshwari":"Motivational Speaker named Sandeep Maheshwari",
-       "Narendra Modi":"Prime Minister of India, Narendra Modi"}
-
-def ask_shriya(question,id,model):
-  actor=models.get(model)  
-  dialog_messages=fetch_last_three_conversation(id)
-  message=[]
-  message.append({"role": "system", "content": f"you are {actor}"})
-  for dialog_message in dialog_messages:
-    if 'user' in dialog_message:
-      message.append({"role": "user", "content": dialog_message["user"]})
-    else:
-      message.append({"role": "assistant", "content": dialog_message["bot"]})
-  message.append({"role": "user", "content": question})
-  response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=message,
-    temperature=0.7,
-    frequency_penalty=0,
-    max_tokens=1000,
-    presence_penalty=0
-  )
-  return response
-
-async def transcribe_audio(audio_file):
-    r = await openai.Audio.atranscribe("whisper-1", audio_file)
-    return r["text"]
+class chatGpt:
+  async def ask_shriya(question,id,model,dialog_messages):
+  # get current model data
+    actor=models.get(model)
   
+    message=[]
+    message.append({"role":"system", "content":actor})
+    message+=dialog_messages
+  
+    
+    message.append({"role": "user", "content": question})
+    print(message)
+    answer = None
+    while answer is None:
+      try:
+        r_gen =await openai.ChatCompletion.acreate(
+          model="gpt-3.5-turbo",
+          messages=message,
+          stream=True,
+          temperature=0.7,
+          frequency_penalty=0,
+          max_tokens=1000,
+          presence_penalty=0
+        )
+        answer = ""
+        async for r_item in r_gen:
+          delta = r_item.choices[0].delta
+          if "content" in delta:
+            answer += delta.content
+            yield "not_finished",answer
+      except openai.error.InvalidRequestError as e:
+        # too many tokens
+        if len(dialog_messages) == 0:
+          raise e
+    yield "finished", answer
+  
+async def transcribe_audio(audio_file):
+      r = await openai.Audio.atranscribe("whisper-1", audio_file)
+      return r["text"]
