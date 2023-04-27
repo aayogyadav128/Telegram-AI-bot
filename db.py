@@ -1,6 +1,7 @@
 import pymongo
 from pymongo import MongoClient
-from datetime import datetime
+from datetime import datetime, timedelta
+import asyncio
 
 
 uri = ""
@@ -10,7 +11,7 @@ cluster = MongoClient(uri)
 
 
 # Send a ping to confirm a successful connection
-db = cluster["GptBot"]
+db = cluster["GptBot3"]
 collection = db["users"]
 collection2 = db["dialogs"]
 
@@ -21,15 +22,13 @@ def check_if_user_exists(data):
     return True
   else:
     return False
-  # if collection.find({'_id': data.id}).count>0:
-  #   return True
-  # else:
-  #   return False
-  
 
 def create_new_user(data):
-  
+
   if not check_if_user_exists(data):
+    now_date_time=datetime.now()-timedelta(days=31)
+    now_timestamp=datetime.timestamp(now_date_time)
+    now_js_timestamp=now_timestamp*1000
     user_dict = {
             "_id": data.id,
 
@@ -42,11 +41,11 @@ def create_new_user(data):
 
             "current_dialog_id": None,
             "current_chat_mode": "assistant",
-            "current_model": "Shriya (AI Assistant)",
+            "current_model": "Anmol Ki Bot",
             "is_first_time": True,
             "n_used_tokens": {},
 
-            "last_subscription_date": datetime.now() 
+            "last_subscription_date": now_js_timestamp
         }
     collection.insert_one(user_dict)
 
@@ -59,6 +58,7 @@ def check_days_left(data):
   sub_date = collection.find({"_id":userId})
   for sub in sub_date:
     lsd=sub["last_subscription_date"]
+    lsd = datetime.fromtimestamp(lsd/1000)
     lsd=lsd.date()
     date_now= datetime.now()
     date_now=date_now.date()
@@ -66,7 +66,7 @@ def check_days_left(data):
     delta_in_sec=delta.total_seconds()
     days_left=delta_in_sec/86400
     days_left=int(days_left)
-    if days_left<30:
+    if days_left<31:
       days_left=30-days_left
       return days_left
     else:
@@ -80,11 +80,11 @@ def get_times_used(id):
   return count
 
 def is_first_time_user(id):
-  collection_data = collection.find({"_id":id})
-  data={}
-  for i in collection_data:
-    data=i
-  first_time = data["is_first_time"]
+  data = collection.find({"_id":id})
+  dat={}
+  for i in data:
+    dat=i
+  first_time = dat["is_first_time"]
   if first_time:
     return True
   else:
@@ -104,7 +104,7 @@ def entry_of_dialogs(user_id,message_id,who,message):
                "sender": who,
                "message": message,
                "datetime": datetime.now()}
-  
+
   collection2.insert_one(entry_dialog)
 
 
@@ -112,26 +112,29 @@ def entry_of_dialogs(user_id,message_id,who,message):
 
 
 def fetch_last_three_conversation(id):
-  conversation=collection2.find({"user_id":id}).sort([( '$natural', -1 )]).limit(6)
+  conversation=collection2.find({"user_id":id}).sort([( '$natural', -1 )]).limit(4)
   dict = []
   for conv in conversation:
     who=conv["sender"]
     mess=conv["message"]
-    conv={who:mess}
+    conv={"role":who,"content":mess}
     dict.append(conv)
   return dict
-  print(dict)
-  print(conversation)
+
 
 def get_last_question(id):
   conversation=collection2.find({"user_id":id}).sort([( '$natural', -1 )]).limit(1)
-  dict = {}
+  dict = []
   for conv in conversation:
-    dict=conv["message"]
+    sndr=conv["sender"]
+    if sndr=="user":
+      msg=conv["message"]
+      convv={"role":"user","content":msg}
+      dict.append(convv)
   return dict
 
 
-  
+
 def check_if_has_phonenemail(userId):
   phone_email = collection.find({"_id":userId})
   dict=[]
@@ -141,20 +144,20 @@ def check_if_has_phonenemail(userId):
     return True
   else:
     return False
-  
+
 def get_phone_email(id):
   phone_email_ = collection.find({"_id":id})
   dict=[]
   for j in phone_email_:
     dict.append(j)
   data=dict[0]["phone_n_email"]
-  
+
   return data
 
 def set_phone_email(id,phone,email):
   collection.update_one({"_id": id},
     {"$set": {"phone_n_email": {"phone":phone,"email":email}}, "$currentDate": {"lastModified": True}},)
-  
+
 
 def update_current_model(id,current_model):
   collection.update_one({"_id": id},
@@ -169,10 +172,8 @@ def fetch_current_model(id):
 
 def check_if_first_time_n_over(id):
   times_used=get_times_used(id)
-  first_time =if_first_time_user(id)
+  first_time =is_first_time_user(id)
   if first_time==True and times_used>50:
     return True
-    print("true")
   else:
     return False
-    print("false")
