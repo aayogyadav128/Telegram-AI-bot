@@ -79,7 +79,8 @@ async def help(update: Update, context: CallbackContext):
 
 ############################promp_handle#########################
 
-async def user_prompt(update: Update, context: CallbackContext):
+async def user_prompt(update: Update, context: CallbackContext,other_func_msg=None):
+
     times_used = get_times_used(update.message.from_user.id)
     first_time = is_first_time_user(update.message.from_user.id)
 
@@ -94,19 +95,23 @@ async def user_prompt(update: Update, context: CallbackContext):
         await update.message.reply_text("<b>We apologize, but it seems that you have exhausted your free trial usage. To continue using our services, please subscribe.</b> 💰🔒\nTo subscribe, please use the /subscribe command.", parse_mode=ParseMode.HTML)
 
     else:
+      
       try:
         # send placeholder message to user
           placeholder_message = await update.message.reply_text("...", parse_mode=ParseMode.HTML)
-  
           # send typing action
           await update.message.chat.send_action(action="typing")
-          update_message_text = update.message.text
-          entry_of_dialogs(update.message.from_user.id, update.message.id, "user", update_message_text)
+          
           model = fetch_current_model(update.message.from_user.id)
           prev_msgs= fetch_last_three_conversation(update.message.from_user.id)
-  
+          
+          if update.message.text==None:
+             the_msg=other_func_msg
+          elif other_func_msg==None:
+             the_msg=update.message.text
+          entry_of_dialogs(update.message.from_user.id, update.message.id, "user", the_msg)
   ##########################somedata
-          reply = chatGpt.ask_shriya(update.message.text, update.message.from_user.id, model,prev_msgs)
+          reply = chatGpt.ask_shriya(the_msg, update.message.from_user.id, model,prev_msgs)
           prev_answer = ""
           async for gen_item in reply:
             status, answer = gen_item
@@ -133,18 +138,7 @@ async def user_prompt(update: Update, context: CallbackContext):
       
         
 
-        # async def get_reply():
-        #     model =await fetch_current_model(update.message.from_user.id)
-        #     prev_msgs= await fetch_last_three_conversation(update.message.from_user.id)
-        #     reply =await ask_shriya(update.message.text, update.message.from_user.id, model,prev_msgs)
-        #     return reply
 
-        # reply = await get_reply()
-        # reply = reply.choices[0].message.content
-        # entry_of_dialogs(update.message.from_user.id, update.message.id, "assistant", reply)
-        # await context.bot.edit_message_text(reply, chat_id=placeholder_message.chat_id, message_id=placeholder_message.message_id, parse_mode=ParseMode.HTML)
-
-    # entry_of_dialogs(update.message.id,"bot",)
 #####################profile############################
 async def profile(update: Update, context: CallbackContext):
     # get user information
@@ -217,8 +211,8 @@ async def set_chat_mode_handle(update: Update, context: CallbackContext):
 #########################new##################
 async def new(update:Update,context:CallbackContext):
   await update.message.reply_text("<b>Starting new dialog ✅</b> 🔄", parse_mode=ParseMode.HTML)
-  update_current_model(update.message.from_user.id,"Anmol Ki AI")
-  await update.message.reply_text("<b>👩🏼‍🎓 Hi, I'm Anmol Ki AI. Your AI Assistant. How can I help you?</b> 💡", parse_mode=ParseMode.HTML)
+  update_current_model(update.message.from_user.id,"General Assistant")
+  await update.message.reply_text("<b>👩🏼‍🎓 Hi, General Assistant. Your AI Assistant. How can I help you?</b> 💡", parse_mode=ParseMode.HTML)
 
 
 async def retry(update: Update, context: CallbackContext):
@@ -239,11 +233,7 @@ async def retry(update: Update, context: CallbackContext):
     else:
         last_ques = get_last_question(user_id)
         model = fetch_current_model(user_id)
-        placeholder=await update.message.reply_text("Retrying...",parse_mode=ParseMode.HTML)
-        await update.message.chat.send_action(action="typing")
-        reply = chatGpt.ask_shriya(last_ques, user_id, model,{})
-        reply = reply.choices[0].message.content
-        await update.message.reply_text(f"<b>{reply}</b>", parse_mode=ParseMode.HTML)
+        await user_prompt(update,context,other_func_msg=last_ques)
 
 
 
@@ -295,23 +285,10 @@ async def voice_message_handle(update: Update, context: CallbackContext):
             with open(voice_mp3_path, "rb") as f:
                 transcribed_text = await transcribe_audio(f)
         text = f"🎤: <i>{transcribed_text}</i>"
+        
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
-
-        placeholder_message = await update.message.reply_text("...")
-
-        # send typing action
-        await update.message.chat.send_action(action="typing")
-        update_message_text=transcribed_text
-
-        entry_of_dialogs(update_message_text,update.message.id,"user",update_message_text)
-        async def get_reply():
-            model = fetch_current_model(update.message.from_user.id)
-            reply = chatGpt.ask_shriya(transcribed_text,update.message.from_user.id,model)
-            return reply
-        reply= await get_reply()
-        reply=reply.choices[0].message.content
-        entry_of_dialogs(update.message.from_user.id,update.message.id,"bot",reply)
-        await context.bot.edit_message_text(reply, chat_id=placeholder_message.chat_id, message_id=placeholder_message.message_id)
+        await user_prompt(update,context,other_func_msg=transcribed_text)
+        
 
 
 if __name__ == '__main__':
