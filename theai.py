@@ -15,7 +15,7 @@ class chatGpt:
   
     
     message.append({"role": "user", "content": question})
-    print(message)
+    
     answer = None
     while answer is None:
       try:
