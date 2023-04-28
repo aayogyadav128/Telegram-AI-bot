@@ -41,7 +41,7 @@ def create_new_user(data):
 
             "current_dialog_id": None,
             "current_chat_mode": "assistant",
-            "current_model": "Anmol Ki Bot",
+            "current_model": "General Assistant",
             "is_first_time": True,
             "n_used_tokens": {},
 
