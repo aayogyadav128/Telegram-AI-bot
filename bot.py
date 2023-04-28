@@ -104,7 +104,7 @@ async def user_prompt(update: Update, context: CallbackContext,other_func_msg=No
           
           model = fetch_current_model(update.message.from_user.id)
           prev_msgs= fetch_last_three_conversation(update.message.from_user.id)
-          
+          the_msg=""
           if update.message.text==None:
              the_msg=other_func_msg
           elif other_func_msg==None:
